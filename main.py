@@ -139,18 +139,25 @@ if args.test:
   encoder.eval()
   with torch.no_grad():
     total_reward = 0
-    for _ in tqdm(range(args.test_episodes)):
+    video_frames = []
+    for episode in tqdm(range(args.test_episodes)):
       observation = env.reset()
       belief, posterior_state, action = torch.zeros(1, args.belief_size, device=args.device), torch.zeros(1, args.state_size, device=args.device), torch.zeros(1, env.action_size, device=args.device)
       pbar = tqdm(range(args.max_episode_length // args.action_repeat))
       for t in pbar:
-        belief, posterior_state, action, observation, reward, done = update_belief_and_act(args, env, planner, transition_model, encoder, belief, posterior_state, action, observation.to(device=args.device), env.action_range[0], env.action_range[1])
+        belief, posterior_state, action, next_observation, reward, done = update_belief_and_act(args, env, planner, transition_model, encoder, belief, posterior_state, action, observation.to(device=args.device), env.action_range[0], env.action_range[1])
         total_reward += reward
+        if not args.symbolic_env:  # Collect real vs. predicted frames for video
+          video_frames.append(make_grid(torch.cat([observation, observation_model(belief, posterior_state).cpu()], dim=3) + 0.5, nrow=5).numpy())  # Decentre
+        observation = next_observation
         if args.render:
           env.render()
         if done:
           pbar.close()
           break
+      if not args.symbolic_env:
+        episode_str = str(episode).zfill(len(str(args.episodes)))
+        write_video(video_frames, 'test_episode_%s' % episode_str, results_dir)  # Lossy compression
   print('Average Reward:', total_reward / args.test_episodes)
   env.close()
   quit()

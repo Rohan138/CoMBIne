@@ -1,4 +1,7 @@
 torch
+opencv-python
+tqdm
+plotly
 numpy
 gym
 dm_control

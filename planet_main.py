@@ -1,6 +1,7 @@
 import argparse
-from math import inf
 import os
+from math import inf
+
 import numpy as np
 import torch
 from torch import nn, optim
@@ -9,12 +10,13 @@ from torch.distributions.kl import kl_divergence
 from torch.nn import functional as F
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
-from env import CONTROL_SUITE_ENVS, Env, GYM_ENVS, EnvBatcher
+
+from env import CONTROL_SUITE_ENVS, GYM_ENVS, Env, EnvBatcher
 from memory import ExperienceReplay
-from models import bottle, Encoder, ObservationModel, RewardModel, TransitionModel
+from models import (Encoder, ObservationModel, RewardModel, TransitionModel,
+                    bottle)
 from planner import MPCPlanner
 from utils import lineplot, write_video
-
 
 # Hyperparameters
 parser = argparse.ArgumentParser(description="CoMBIne")
@@ -24,7 +26,7 @@ parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")
 parser.add_argument(
     "--env",
     type=str,
-    default="Pendulum-v0",
+    default="Pendulum-v1",
     choices=GYM_ENVS + CONTROL_SUITE_ENVS,
     help="Gym/Control Suite environment",
 )
@@ -201,13 +203,25 @@ parser.add_argument(
     "--model", type=str, default="", metavar="M", help="Load model checkpoint"
 )
 parser.add_argument(
-    "--transition-model", type=str, default="", metavar="M", help="Load transition model checkpoint"
+    "--transition-model",
+    type=str,
+    default="",
+    metavar="M",
+    help="Load transition model checkpoint",
 )
 parser.add_argument(
-    "--observation-model", type=str, default="", metavar="M", help="Load observation model checkpoint"
+    "--observation-model",
+    type=str,
+    default="",
+    metavar="M",
+    help="Load observation model checkpoint",
 )
 parser.add_argument(
-    "--reward-model", type=str, default="", metavar="M", help="Load reward model checkpoint"
+    "--reward-model",
+    type=str,
+    default="",
+    metavar="M",
+    help="Load reward model checkpoint",
 )
 parser.add_argument(
     "--encoder", type=str, default="", metavar="M", help="Load encoder checkpoint"

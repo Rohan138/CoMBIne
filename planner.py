@@ -1,4 +1,5 @@
 from math import inf
+
 import torch
 from torch import jit
 

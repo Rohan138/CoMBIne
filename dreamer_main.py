@@ -1,6 +1,7 @@
 import argparse
-from math import inf
 import os
+from math import inf
+
 import numpy as np
 import torch
 from torch import nn, optim
@@ -9,13 +10,13 @@ from torch.distributions.kl import kl_divergence
 from torch.nn import functional as F
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
-from zmq import device
-from env import CONTROL_SUITE_ENVS, Env, GYM_ENVS, EnvBatcher
-from memory import ExperienceReplay
-from models import bottle, Encoder, ObservationModel, RewardModel, TransitionModel
-from dreamer import DreamerAgent
-from utils import lineplot, write_video
 
+from dreamer import DreamerAgent
+from env import CONTROL_SUITE_ENVS, GYM_ENVS, Env, EnvBatcher
+from memory import ExperienceReplay
+from models import (Encoder, ObservationModel, RewardModel, TransitionModel,
+                    bottle)
+from utils import lineplot, write_video
 
 # Hyperparameters
 parser = argparse.ArgumentParser(description="CoMBIne")
@@ -25,7 +26,7 @@ parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")
 parser.add_argument(
     "--env",
     type=str,
-    default="Pendulum-v0",
+    default="Pendulum-v1",
     choices=GYM_ENVS + CONTROL_SUITE_ENVS,
     help="Gym/Control Suite environment",
 )
@@ -50,6 +51,13 @@ parser.add_argument(
     default="relu",
     choices=dir(F),
     help="Model activation function",
+)
+parser.add_argument(
+    "--dreamer-activation-function",
+    type=str,
+    default="elu",
+    choices=dir(F),
+    help="Agent activation function",
 )
 parser.add_argument(
     "--embedding-size",
@@ -128,7 +136,7 @@ parser.add_argument(
     help="Image bit depth (quantisation)",
 )
 parser.add_argument(
-    "--learning-rate", type=float, default=1e-3, metavar="α", help="Learning rate"
+    "--learning-rate", type=float, default=6e-4, metavar="α", help="Learning rate"
 )
 parser.add_argument(
     "--learning-rate-schedule",
@@ -140,38 +148,52 @@ parser.add_argument(
 parser.add_argument(
     "--adam-epsilon",
     type=float,
-    default=6e-4,
+    default=1e-4,
     metavar="ε",
     help="Adam optimiser epsilon value",
 )
 # Note that original has a linear learning rate decay, but it seems unlikely that this makes a significant difference
 parser.add_argument(
-    "--policy-epsilon",
+    "--policy-lr",
     type=float,
     default=8e-5,
     metavar="pε",
-    help="Adam optimiser epsilon value for policy",
+    help="Learning rate for policy",
 )
 parser.add_argument(
-    "--value-epsilon",
+    "--value-lr",
     type=float,
     default=8e-5,
     metavar="vε",
-    help="Adam optimiser epsilon value for value",
+    help="Learning rate for value",
+)
+parser.add_argument(
+    "--gamma",
+    type=float,
+    default=0.99,
+    metavar="G",
+    help="gamma for value estimation",
+)
+parser.add_argument(
+    "--lam",
+    type=float,
+    default=0.95,
+    metavar="lam",
+    help="lambda for value estimation",
 )
 parser.add_argument(
     "--grad-clip-norm",
     type=float,
-    default=1000,
+    default=100,
     metavar="C",
     help="Gradient clipping norm",
 )
 parser.add_argument(
-    "--planning-horizon",
+    "--horizon",
     type=int,
     default=15,
-    metavar="H",
-    help="Planning horizon distance",
+    metavar="I",
+    help="Imagination horizon distance",
 )
 parser.add_argument("--test", action="store_true", help="Test only")
 parser.add_argument(
@@ -198,13 +220,25 @@ parser.add_argument(
     "--model", type=str, default="", metavar="M", help="Load model checkpoint"
 )
 parser.add_argument(
-    "--transition-model", type=str, default="", metavar="M", help="Load transition model checkpoint"
+    "--transition-model",
+    type=str,
+    default="",
+    metavar="M",
+    help="Load transition model checkpoint",
 )
 parser.add_argument(
-    "--observation-model", type=str, default="", metavar="M", help="Load observation model checkpoint"
+    "--observation-model",
+    type=str,
+    default="",
+    metavar="M",
+    help="Load observation model checkpoint",
 )
 parser.add_argument(
-    "--reward-model", type=str, default="", metavar="M", help="Load reward model checkpoint"
+    "--reward-model",
+    type=str,
+    default="",
+    metavar="M",
+    help="Load reward model checkpoint",
 )
 parser.add_argument(
     "--encoder", type=str, default="", metavar="M", help="Load encoder checkpoint"
@@ -229,6 +263,7 @@ parser.add_argument(
     help="Load experience replay",
 )
 parser.add_argument("--render", action="store_true", help="Render environment")
+parser.add_argument("--video", action="store_true", help="Record video of environment")
 args = parser.parse_args()
 args.overshooting_distance = min(
     args.chunk_size, args.overshooting_distance
@@ -367,9 +402,13 @@ agent = DreamerAgent(
     args.belief_size,
     args.state_size,
     args.dreamer_hidden_size,
-    args.planning_horizon,
-    args.policy_epsilon,
-    args.value_epsilon,
+    args.horizon,
+    args.policy_lr,
+    args.value_lr,
+    args.gamma,
+    args.lam,
+    args.grad_clip_norm,
+    args.dreamer_activation_function,
     transition_model,
     reward_model,
     env.action_range[0],
@@ -474,7 +513,9 @@ if args.test:
                     env.action_range[1],
                 )
                 total_reward += reward
-                if not args.symbolic_env:  # Collect real vs. predicted frames for video
+                if (
+                    not args.symbolic_env and args.video
+                ):  # Collect real vs. predicted frames for video
                     video_frames.append(
                         make_grid(
                             torch.cat(
@@ -494,7 +535,7 @@ if args.test:
                 if done:
                     pbar.close()
                     break
-            if not args.symbolic_env:
+            if not args.symbolic_env and args.video:
                 episode_str = str(episode).zfill(len(str(args.episodes)))
                 write_video(
                     video_frames, "test_episode_%s" % episode_str, results_dir
@@ -666,9 +707,21 @@ for episode in tqdm(
         (observation_loss + reward_loss + kl_loss).backward()
         nn.utils.clip_grad_norm_(param_list, args.grad_clip_norm, norm_type=2)
         optimiser.step()
-        policy_loss, value_loss = agent.train()
+        beliefs = torch.cat([init_belief.unsqueeze(dim=0), beliefs.detach()], dim=0)
+        posterior_states = torch.cat(
+            [init_state.unsqueeze(dim=0), posterior_states.detach()], dim=0
+        )
+        policy_loss, value_loss = agent.train(beliefs, posterior_states)
         # Store (0) observation loss (1) reward loss (2) KL loss (3) policy loss (4) value loss
-        losses.append([observation_loss.item(), reward_loss.item(), kl_loss.item(), policy_loss.item(), value_loss.item()])
+        losses.append(
+            [
+                observation_loss.item(),
+                reward_loss.item(),
+                kl_loss.item(),
+                policy_loss.item(),
+                value_loss.item(),
+            ]
+        )
 
     # Update and plot loss metrics
     losses = tuple(zip(*losses))
@@ -815,7 +868,9 @@ for episode in tqdm(
                     env.action_range[1],
                 )
                 total_rewards += reward.numpy()
-                if not args.symbolic_env:  # Collect real vs. predicted frames for video
+                if (
+                    not args.symbolic_env and args.video
+                ):  # Collect real vs. predicted frames for video
                     video_frames.append(
                         make_grid(
                             torch.cat(
@@ -850,7 +905,7 @@ for episode in tqdm(
             results_dir,
             xaxis="step",
         )
-        if not args.symbolic_env:
+        if not args.symbolic_env and args.video:
             episode_str = str(episode).zfill(len(str(args.episodes)))
             write_video(
                 video_frames, "test_episode_%s" % episode_str, results_dir
@@ -879,14 +934,14 @@ for episode in tqdm(
                 "encoder": encoder.state_dict(),
                 "optimiser": optimiser.state_dict(),
             },
-            os.path.join(results_dir, "models_%d.pth" % episode),
+            os.path.join(results_dir, "models.pth"),
         )
         torch.save(
             {
                 "policy_model": agent.policy_model.state_dict(),
                 "value_model": agent.value_model.state_dict(),
             },
-            os.path.join(results_dir, "agent_%d.pth" % episode),
+            os.path.join(results_dir, "agent.pth"),
         )
         if args.checkpoint_experience:
             torch.save(

@@ -1,4 +1,5 @@
-from typing import Optional, List
+from typing import List, Optional
+
 import torch
 from torch import jit, nn
 from torch.nn import functional as F

@@ -11,7 +11,7 @@ from torch.nn import functional as F
 from torchvision.utils import make_grid, save_image
 from tqdm import tqdm
 
-from dreamer import DreamerAgent
+from dreamer import DreamerAgent, freeze, unfreeze
 from env import CONTROL_SUITE_ENVS, GYM_ENVS, Env, EnvBatcher
 from memory import ExperienceReplay
 from models import (Encoder, ObservationModel, RewardModel, TransitionModel,
@@ -202,6 +202,13 @@ parser.add_argument(
     metavar="I",
     help="Imagination horizon distance",
 )
+parser.add_argument(
+    "--bisim",
+    type=float,
+    default=0.5,
+    metavar="bc",
+    help="Bisimulation coefficient for DBC encoder",
+)
 parser.add_argument("--test", action="store_true", help="Test only")
 parser.add_argument(
     "--test-interval",
@@ -301,6 +308,7 @@ metrics = {
     "kl_loss": [],
     "policy_loss": [],
     "value_loss": [],
+    "encoder_loss": [],
 }
 
 
@@ -379,6 +387,10 @@ optimiser = optim.Adam(
     param_list,
     lr=0 if args.learning_rate_schedule != 0 else args.learning_rate,
     eps=args.adam_epsilon,
+)
+encoder_optim = optim.Adam(
+    list(encoder.parameters()) + list(transition_model.parameters()),
+    lr=args.encoder_lr,
 )
 
 if args.model != "" and os.path.exists(args.model):
@@ -709,10 +721,46 @@ for episode in tqdm(
                     group["lr"] + args.learning_rate / args.learning_rate_schedule,
                     args.learning_rate,
                 )
+        # Add DBC loss; note that gradients accumulate
+        perm_idx = torch.randperm(observations.shape[0])
+        perm_observations = observations[perm_idx].detach()
+        perm_rewards = rewards[perm_idx].detach()
+        perm_actions = actions[perm_idx].detach()
+        perm_nonterminals = nonterminals[perm_idx].detach()
+        breakpoint()
+
+        perm_init_belief, perm_init_state = torch.zeros(
+            args.batch_size, args.belief_size, device=args.device
+        ), torch.zeros(args.batch_size, args.state_size, device=args.device)
+        # Update belief/state using posterior from previous belief/state, previous action and current observation (over entire sequence at once)
+        (
+            perm_beliefs,
+            _,
+            _,
+            _,
+            perm_posterior_states,
+            perm_posterior_means,
+            perm_posterior_std_devs,
+        ) = transition_model(
+            perm_init_state,
+            perm_actions,
+            perm_init_belief,
+            encoder(perm_observations),
+            perm_nonterminals,
+        )
+        breakpoint()
+        diff_beliefs = nn.L1Loss(perm_beliefs, beliefs)
+        diff_states = nn.L1Loss(perm_posterior_states, posterior_states)
+        diff_rewards = nn.L1Loss(perm_rewards, rewards)
+        encoder_loss = torch.zeros([1])
+        
         # Update model parameters
         optimiser.zero_grad()
-        (observation_loss + reward_loss + kl_loss).backward()
+        encoder_optim.zero_grad()
+        total_loss = observation_loss + reward_loss + kl_loss + args.bisim * encoder_loss
+        total_loss.backward()
         nn.utils.clip_grad_norm_(param_list, args.grad_clip_norm, norm_type=2)
+        encoder_optim.step()
         optimiser.step()
         beliefs = torch.cat([init_belief.unsqueeze(dim=0), beliefs.detach()], dim=0)
         posterior_states = torch.cat(
@@ -727,6 +775,7 @@ for episode in tqdm(
                 kl_loss.item(),
                 policy_loss.item(),
                 value_loss.item(),
+                encoder_loss.item(),
             ]
         )
 
@@ -737,6 +786,7 @@ for episode in tqdm(
     metrics["kl_loss"].append(losses[2])
     metrics["policy_loss"].append(losses[3])
     metrics["value_loss"].append(losses[4])
+    metrics["encoder_loss"].append(losses[5])
     lineplot(
         metrics["episodes"][-len(metrics["observation_loss"]) :],
         metrics["observation_loss"],
@@ -765,6 +815,12 @@ for episode in tqdm(
         metrics["episodes"][-len(metrics["value_loss"]) :],
         metrics["value_loss"],
         "value_loss",
+        results_dir,
+    )
+    lineplot(
+        metrics["episodes"][-len(metrics["encoder_loss"]) :],
+        metrics["encoder_loss"],
+        "encoder_loss",
         results_dir,
     )
 

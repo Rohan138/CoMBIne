@@ -237,6 +237,7 @@ parser.add_argument(
     help="Load experience replay",
 )
 parser.add_argument("--render", action="store_true", help="Render environment")
+parser.add_argument("--video", action="store_true", help="Record video of environment")
 args = parser.parse_args()
 args.overshooting_distance = min(
     args.chunk_size, args.overshooting_distance
@@ -465,7 +466,7 @@ if args.test:
                     env.action_range[1],
                 )
                 total_reward += reward
-                if not args.symbolic_env:  # Collect real vs. predicted frames for video
+                if not args.symbolic_env and args.video:  # Collect real vs. predicted frames for video
                     video_frames.append(
                         make_grid(
                             torch.cat(
@@ -485,7 +486,7 @@ if args.test:
                 if done:
                     pbar.close()
                     break
-            if not args.symbolic_env:
+            if not args.symbolic_env and args.video:
                 episode_str = str(episode).zfill(len(str(args.episodes)))
                 write_video(
                     video_frames, "test_episode_%s" % episode_str, results_dir
@@ -791,7 +792,7 @@ for episode in tqdm(
                     env.action_range[1],
                 )
                 total_rewards += reward.numpy()
-                if not args.symbolic_env:  # Collect real vs. predicted frames for video
+                if not args.symbolic_env and args.video:  # Collect real vs. predicted frames for video
                     video_frames.append(
                         make_grid(
                             torch.cat(
@@ -826,7 +827,7 @@ for episode in tqdm(
             results_dir,
             xaxis="step",
         )
-        if not args.symbolic_env:
+        if not args.symbolic_env and args.video:
             episode_str = str(episode).zfill(len(str(args.episodes)))
             write_video(
                 video_frames, "test_episode_%s" % episode_str, results_dir
@@ -855,7 +856,7 @@ for episode in tqdm(
                 "encoder": encoder.state_dict(),
                 "optimiser": optimiser.state_dict(),
             },
-            os.path.join(results_dir, "models_%d.pth" % episode),
+            os.path.join(results_dir, "models.pth" % episode),
         )
         if args.checkpoint_experience:
             torch.save(

@@ -1,4 +1,4 @@
-from math import gamma, inf
+from math import inf
 from typing import Union
 
 import numpy as np
@@ -191,6 +191,7 @@ class DreamerAgent(object):
         value_discount = discount.detach()
         value_target = returns.detach()
         value_pred = bottle(self.value_model, (value_beliefs, value_states))
+        log_prob = None
         value_loss = F.mse_loss(value_target, value_discount * value_pred)
 
         self.policy_optim.zero_grad()

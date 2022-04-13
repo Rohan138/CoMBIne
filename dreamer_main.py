@@ -20,7 +20,7 @@ from utils import lineplot, write_video
 
 # Hyperparameters
 parser = argparse.ArgumentParser(description="CoMBIne")
-parser.add_argument("--id", type=str, default="default", help="Experiment ID")
+parser.add_argument("--id", type=str, default="dreamer", help="Experiment ID")
 parser.add_argument("--seed", type=int, default=1, metavar="S", help="Random seed")
 parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")
 parser.add_argument(

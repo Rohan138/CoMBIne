@@ -203,7 +203,7 @@ parser.add_argument(
     help="Imagination horizon distance",
 )
 parser.add_argument(
-    "--bisim",
+    "--bisim-coef",
     type=float,
     default=0.5,
     metavar="bc",
@@ -722,12 +722,13 @@ for episode in tqdm(
                     args.learning_rate,
                 )
         # Add DBC loss; note that gradients accumulate
-        perm_idx = torch.randperm(observations.shape[0])
+        # Note that we throw away the first observation in each chunk
+        # Need to be careful about 0-indexing vs 1-indexing for CxBx_ tensors
+        perm_idx = torch.randperm(observations[1:].shape[0]) + 1
         perm_observations = observations[perm_idx].detach()
         perm_rewards = rewards[perm_idx].detach()
-        perm_actions = actions[perm_idx].detach()
-        perm_nonterminals = nonterminals[perm_idx].detach()
-        breakpoint()
+        perm_actions = actions[perm_idx - 1].detach()
+        perm_nonterminals = nonterminals[perm_idx - 1].detach()
 
         perm_init_belief, perm_init_state = torch.zeros(
             args.batch_size, args.belief_size, device=args.device
@@ -736,11 +737,11 @@ for episode in tqdm(
         (
             perm_beliefs,
             _,
-            _,
-            _,
+            perm_prior_means,
+            perm_prior_std_devs,
             perm_posterior_states,
-            perm_posterior_means,
-            perm_posterior_std_devs,
+            _,
+            _,
         ) = transition_model(
             perm_init_state,
             perm_actions,
@@ -748,16 +749,24 @@ for episode in tqdm(
             encoder(perm_observations),
             perm_nonterminals,
         )
-        breakpoint()
-        diff_beliefs = nn.L1Loss(perm_beliefs, beliefs)
-        diff_states = nn.L1Loss(perm_posterior_states, posterior_states)
-        diff_rewards = nn.L1Loss(perm_rewards, rewards)
-        encoder_loss = torch.zeros([1])
+        # Throw away last timestep because we don't have P(s'|s,a) for it
+        diff_beliefs = F.smooth_l1_loss(perm_beliefs[:-1], beliefs[:-1])
+        diff_states = F.smooth_l1_loss(perm_posterior_states[:-1], posterior_states[:-1])
+        z_dist = diff_beliefs + diff_states
+        r_dist = F.smooth_l1_loss(perm_rewards[:-1], rewards[1:-1])
+        # prior_means, prior_stddev = P(s'|s,a)
+        t_dist = torch.sqrt(
+            F.mse_loss(prior_means[1:].detach(), perm_prior_means[1:].detach())
+            + F.mse_loss(prior_std_devs[1:].detach(), perm_prior_std_devs[1:].detach())
+            )
+        bisim = r_dist + args.gamma * t_dist
+        encoder_loss = F.mse_loss(z_dist, bisim)
         
         # Update model parameters
         optimiser.zero_grad()
         encoder_optim.zero_grad()
-        total_loss = observation_loss + reward_loss + kl_loss + args.bisim * encoder_loss
+        total_loss = observation_loss + reward_loss + kl_loss
+        total_loss += args.bisim_coef * encoder_loss
         total_loss.backward()
         nn.utils.clip_grad_norm_(param_list, args.grad_clip_norm, norm_type=2)
         encoder_optim.step()

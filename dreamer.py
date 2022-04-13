@@ -4,7 +4,7 @@ from typing import Union
 import numpy as np
 import torch
 from torch import jit, nn
-from torch.distributions import TanhTransform
+from torch.distributions import TanhTransform, Independent, Normal, TransformedDistribution
 from torch.nn import functional as F
 from torch.optim import Adam
 
@@ -49,13 +49,13 @@ class PolicyModel(nn.Module):
         mean, std = torch.chunk(model_out, 2, -1)
         mean = self.mean_scale * torch.tanh(mean / self.mean_scale)
         std = F.softplus(std + self.raw_init_std) + self.min_std
-        dist = torch.distributions.Normal(mean, std)
-        dist = torch.distributions.TransformedDistribution(dist, TanhTransform())
-        dist = torch.distributions.Independent(dist, 1)
+        dist = Normal(mean, std)
+        dist = TransformedDistribution(dist, TanhTransform())
+        dist = Independent(dist, 1)
         return dist
 
 
-class ValueModel(jit.ScriptModule):
+class ValueModel(nn.Module):
     def __init__(self, latent_size, hidden_size, activation_function="elu"):
         super().__init__()
         self.act_fn = getattr(F, activation_function)
@@ -63,7 +63,6 @@ class ValueModel(jit.ScriptModule):
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, 1)
 
-    @jit.script_method
     def forward(self, belief, state):
         hidden = self.act_fn(self.fc1(torch.cat([belief, state], dim=1)))
         hidden = self.act_fn(self.fc2(hidden))
@@ -191,8 +190,7 @@ class DreamerAgent(object):
         value_discount = discount.detach()
         value_target = returns.detach()
         value_pred = bottle(self.value_model, (value_beliefs, value_states))
-        log_prob = None
-        value_loss = F.mse_loss(value_target, value_discount * value_pred)
+        value_loss = F.mse_loss(value_discount * value_target, value_pred)
 
         self.policy_optim.zero_grad()
         self.value_optim.zero_grad()

@@ -73,18 +73,41 @@ def _images_to_observation(images, bit_depth):
 
 class ControlSuiteEnv:
     def __init__(
-        self, env, symbolic, seed, max_episode_length, action_repeat, bit_depth
+        self, env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source="none", resource_files=None
     ):
         from dm_control import suite
         from dm_control.suite.wrappers import pixels
+        import imgsource
+        import glob
+        import os
 
         domain, task = env.split("-")
         self.symbolic = symbolic
+        self.img_source = img_source
         self._env = suite.load(
             domain_name=domain, task_name=task, task_kwargs={"random": seed}
         )
         if not symbolic:
             self._env = pixels.Wrapper(self._env)
+
+        if img_source is not None:
+            shape2d = self._env.observation_spec()['pixels'].shape[0:2]
+            if img_source == "color":
+                self._bg_source = imgsource.RandomColorSource(shape2d)
+            elif img_source == "noise":
+                self._bg_source = imgsource.NoiseSource(shape2d)
+            else:
+                files = glob.glob(os.path.expanduser(resource_files))
+                assert len(files), "Pattern {} does not match any files".format(
+                    resource_files
+                )
+                if img_source == "images":
+                    self._bg_source = imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=max_episode_length)
+                elif img_source == "video":
+                    self._bg_source = imgsource.RandomVideoSource(shape2d, files, grayscale=True, total_frames=max_episode_length)
+                else:
+                    raise Exception("img_source %s not defined." % img_source)
+
         self.max_episode_length = max_episode_length
         self.action_repeat = action_repeat
         if action_repeat != CONTROL_SUITE_ACTION_REPEATS[domain]:
@@ -109,9 +132,15 @@ class ControlSuiteEnv:
                 dtype=torch.float32,
             ).unsqueeze(dim=0)
         else:
-            return _images_to_observation(
-                self._env.physics.render(camera_id=0), self.bit_depth
+            obs = self._env.physics.render(camera_id=0)
+            if self.img_source is not None:
+                mask = np.logical_and((obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0]))  # hardcoded for dmc
+                bg = self._bg_source.get_image()
+                obs[mask] = bg[mask]
+            observation = _images_to_observation(
+                obs, self.bit_depth
             )
+            return observation
 
     def step(self, action):
         action = action.detach().numpy()
@@ -135,8 +164,13 @@ class ControlSuiteEnv:
                 dtype=torch.float32,
             ).unsqueeze(dim=0)
         else:
+            obs = self._env.physics.render(camera_id=0)
+            if self.img_source is not None:
+                mask = np.logical_and((obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0]))  # hardcoded for dmc
+                bg = self._bg_source.get_image()
+                obs[mask] = bg[mask]
             observation = _images_to_observation(
-                self._env.physics.render(camera_id=0), self.bit_depth
+                obs, self.bit_depth
             )
         return observation, reward, done
 
@@ -248,12 +282,12 @@ class GymEnv:
         return torch.from_numpy(self._env.action_space.sample())
 
 
-def Env(env, symbolic, seed, max_episode_length, action_repeat, bit_depth):
+def Env(env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source="none", resource_files=None):
     if env in GYM_ENVS:
         return GymEnv(env, symbolic, seed, max_episode_length, action_repeat, bit_depth)
     elif env in CONTROL_SUITE_ENVS:
         return ControlSuiteEnv(
-            env, symbolic, seed, max_episode_length, action_repeat, bit_depth
+            env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source, resource_files
         )
 
 

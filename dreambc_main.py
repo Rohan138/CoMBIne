@@ -278,6 +278,19 @@ parser.add_argument(
 )
 parser.add_argument("--render", action="store_true", help="Render environment")
 parser.add_argument("--video", action="store_true", help="Record video of environment")
+parser.add_argument(
+    "--img-source",
+    type=str,
+    default="none",
+    choices=['color', 'noise', 'images', 'video', 'none'],
+    help="Type of dm_control background",
+)
+parser.add_argument(
+    "--resource-files",
+    type=str,
+    default="",
+    help="resource files for dm_control background",
+)
 args = parser.parse_args()
 args.overshooting_distance = min(
     args.chunk_size, args.overshooting_distance
@@ -313,14 +326,26 @@ metrics = {
 
 
 # Initialise training environment and experience replay memory
-env = Env(
-    args.env,
-    args.symbolic_env,
-    args.seed,
-    args.max_episode_length,
-    args.action_repeat,
-    args.bit_depth,
-)
+if args.env in GYM_ENVS:
+    env = Env(
+        args.env,
+        args.symbolic_env,
+        args.seed,
+        args.max_episode_length,
+        args.action_repeat,
+        args.bit_depth,
+    )
+elif args.env in CONTROL_SUITE_ENVS:
+    env = Env(
+        args.env,
+        args.symbolic_env,
+        args.seed,
+        args.max_episode_length,
+        args.action_repeat,
+        args.bit_depth,
+        args.img_source,
+        args.resource_files,
+    )
 if args.experience_replay != "" and os.path.exists(args.experience_replay):
     D = torch.load(args.experience_replay)
     metrics["steps"], metrics["episodes"] = [D.steps] * D.episodes, list(

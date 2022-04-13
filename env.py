@@ -28,6 +28,7 @@ CONTROL_SUITE_ENVS = [
     "hopper-walk",
     "walker-stand",
     "walker-walk",
+    "walker-run",
 ]
 CONTROL_SUITE_ACTION_REPEATS = {
     "cartpole": 8,

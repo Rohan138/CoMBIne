@@ -168,6 +168,13 @@ parser.add_argument(
     help="Learning rate for value",
 )
 parser.add_argument(
+    "--encoder-lr",
+    type=float,
+    default=1e-5,
+    metavar="eα",
+    help="Learning rate for DBC encoder",
+)
+parser.add_argument(
     "--gamma",
     type=float,
     default=0.99,

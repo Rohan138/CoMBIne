@@ -55,7 +55,7 @@ class PolicyModel(nn.Module):
         return dist
 
 
-class ValueModel(nn.Module):
+class ValueModel(jit.ScriptModule):
     def __init__(self, latent_size, hidden_size, activation_function="elu"):
         super().__init__()
         self.act_fn = getattr(F, activation_function)
@@ -63,6 +63,7 @@ class ValueModel(nn.Module):
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, 1)
 
+    @jit.script_method
     def forward(self, belief, state):
         hidden = self.act_fn(self.fc1(torch.cat([belief, state], dim=1)))
         hidden = self.act_fn(self.fc2(hidden))

@@ -746,7 +746,7 @@ for episode in tqdm(
             perm_init_state,
             perm_actions,
             perm_init_belief,
-            bottle(encoder, perm_observations),
+            bottle(encoder, (perm_observations,)),
             perm_nonterminals,
         )
         # Throw away last timestep because we don't have P(s'|s,a) for it

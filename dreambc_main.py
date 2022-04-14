@@ -281,7 +281,7 @@ parser.add_argument("--video", action="store_true", help="Record video of enviro
 parser.add_argument(
     "--img-source",
     type=str,
-    default="none",
+    default=None,
     choices=['color', 'noise', 'images', 'video', 'none'],
     help="Type of dm_control background",
 )

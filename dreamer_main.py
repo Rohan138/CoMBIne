@@ -268,7 +268,7 @@ parser.add_argument(
     "--img-source",
     type=str,
     default=None,
-    choices=['color', 'noise', 'images', 'video', 'none'],
+    choices=[None, 'color', 'noise', 'images', 'video'],
     help="Type of dm_control background",
 )
 parser.add_argument(
@@ -855,7 +855,7 @@ for episode in tqdm(
                 args.action_repeat,
                 args.bit_depth,
             ),
-            {},
+            {"img_source": args.img_source, "resource_files": args.resource_files},
             args.test_episodes,
         )
 

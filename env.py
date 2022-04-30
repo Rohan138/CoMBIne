@@ -75,7 +75,7 @@ def _images_to_observation(images, bit_depth):
 
 class ControlSuiteEnv:
     def __init__(
-        self, env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source="none", resource_files=None
+        self, env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source=None, resource_files=None
     ):
         from dm_control import suite
         from dm_control.suite.wrappers import pixels
@@ -284,7 +284,7 @@ class GymEnv:
         return torch.from_numpy(self._env.action_space.sample())
 
 
-def Env(env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source="none", resource_files=None):
+def Env(env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source=None, resource_files=None):
     if env in GYM_ENVS:
         return GymEnv(env, symbolic, seed, max_episode_length, action_repeat, bit_depth)
     elif env in CONTROL_SUITE_ENVS:

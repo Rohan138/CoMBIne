@@ -31,11 +31,11 @@ CONTROL_SUITE_ENVS = [
     "walker-run",
 ]
 CONTROL_SUITE_ACTION_REPEATS = {
-    "cartpole": 8,
-    "reacher": 4,
+    "cartpole": 2,
+    "reacher": 2,
     "finger": 2,
-    "cheetah": 4,
-    "ball_in_cup": 6,
+    "cheetah": 2,
+    "ball_in_cup": 2,
     "hopper": 2,
     "walker": 2,
 }

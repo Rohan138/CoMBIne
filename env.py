@@ -19,7 +19,9 @@ GYM_ENVS = [
 ]
 CONTROL_SUITE_ENVS = [
     "cartpole-balance",
+    "cartpole-balance_sparse",
     "cartpole-swingup",
+    "cartpole-swingup_sparse",
     "reacher-easy",
     "finger-spin",
     "cheetah-run",

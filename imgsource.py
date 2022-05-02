@@ -10,6 +10,7 @@ import cv2
 import skvideo.io
 import random
 import tqdm
+from matplotlib import colors
 
 class BackgroundMatting(object):
     """
@@ -48,8 +49,9 @@ class FixedColorSource(ImageSource):
         """
         Args:
             shape: [h, w]
-            color: a 3-tuple
+            color: a matplotlib color string
         """
+        color = np.array(colors.to_rgb(color)) * 255
         self.arr = np.zeros((shape[0], shape[1], 3))
         self.arr[:, :] = color
 

@@ -95,7 +95,10 @@ class ControlSuiteEnv:
         if img_source is not None:
             shape2d = self._env.observation_spec()['pixels'].shape[0:2]
             if img_source == "color":
-                self._bg_source = imgsource.RandomColorSource(shape2d)
+                if resource_files:
+                    self._bg_source = imgsource.FixedColorSource(shape2d, resource_files)
+                else:
+                    self._bg_source = imgsource.RandomColorSource(shape2d)
             elif img_source == "noise":
                 self._bg_source = imgsource.NoiseSource(shape2d)
             else:

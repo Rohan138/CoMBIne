@@ -67,10 +67,9 @@ class RandomColorSource(ImageSource):
         """
         self.shape = shape
         self.arr = None
-        self.reset()
 
     def reset(self):
-        self._color = np.random.randint(0, 256, size=(3,))
+        self._color = np.random.choice([0, 255], size=(3,))
         self.arr = np.zeros((self.shape[0], self.shape[1], 3))
         self.arr[:, :] = self._color
 

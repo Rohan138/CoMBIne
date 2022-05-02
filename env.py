@@ -139,11 +139,7 @@ class ControlSuiteEnv:
                 dtype=torch.float32,
             ).unsqueeze(dim=0)
         else:
-            obs = self._env.physics.render(camera_id=0)
-            if self.img_source is not None:
-                mask = np.logical_and((obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0]))  # hardcoded for dmc
-                bg = self._bg_source.get_image()
-                obs[mask] = bg[mask]
+            obs = self._observe()
             observation = _images_to_observation(
                 obs, self.bit_depth
             )
@@ -171,23 +167,27 @@ class ControlSuiteEnv:
                 dtype=torch.float32,
             ).unsqueeze(dim=0)
         else:
-            obs = self._env.physics.render(camera_id=0)
-            if self.img_source is not None:
-                mask = np.logical_and((obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0]))  # hardcoded for dmc
-                bg = self._bg_source.get_image()
-                obs[mask] = bg[mask]
+            obs = self._observe()
             observation = _images_to_observation(
                 obs, self.bit_depth
             )
         return observation, reward, done
 
     def render(self):
-        cv2.imshow("screen", self._env.physics.render(camera_id=0)[:, :, ::-1])
+        cv2.imshow("screen", self._observe()[:, :, ::-1])
         cv2.waitKey(1)
 
     def close(self):
         cv2.destroyAllWindows()
         self._env.close()
+    
+    def _observe(self):
+        obs = self._env.physics.render(camera_id=0)
+        if self.img_source is not None:
+            mask = np.logical_and((obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0]))  # hardcoded for dmc
+            bg = self._bg_source.get_image()
+            obs[mask] = bg[mask]
+        return obs
 
     @property
     def observation_size(self):

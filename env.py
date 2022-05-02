@@ -125,6 +125,8 @@ class ControlSuiteEnv:
     def reset(self):
         self.t = 0  # Reset internal timer
         state = self._env.reset()
+        if self.img_source is not None:
+            self._bg_source.reset()
         if self.symbolic:
             return torch.tensor(
                 np.concatenate(

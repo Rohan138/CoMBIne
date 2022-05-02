@@ -507,8 +507,8 @@ if args.test:
     encoder.eval()
     with torch.no_grad():
         total_reward = 0
-        video_frames = []
         for episode in tqdm(range(args.test_episodes)):
+            video_frames = []
             observation = env.reset()
             belief, posterior_state, action = (
                 torch.zeros(1, args.belief_size, device=args.device),

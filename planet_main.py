@@ -19,7 +19,7 @@ from planner import MPCPlanner
 from utils import lineplot, write_video
 
 # Hyperparameters
-parser = argparse.ArgumentParser(description="CoMBIne")
+parser = argparse.ArgumentParser(description="PlaNet")
 parser.add_argument("--id", type=str, default="planet", help="Experiment ID")
 parser.add_argument("--seed", type=int, default=1, metavar="S", help="Random seed")
 parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")

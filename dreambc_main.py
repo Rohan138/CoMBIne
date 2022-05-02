@@ -19,7 +19,7 @@ from models import (Encoder, ObservationModel, RewardModel, TransitionModel,
 from utils import lineplot, write_video
 
 # Hyperparameters
-parser = argparse.ArgumentParser(description="CoMBIne")
+parser = argparse.ArgumentParser(description="DreamBC")
 parser.add_argument("--id", type=str, default="dreambc", help="Experiment ID")
 parser.add_argument("--seed", type=int, default=1, metavar="S", help="Random seed")
 parser.add_argument("--disable-cuda", action="store_true", help="Disable CUDA")

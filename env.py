@@ -29,7 +29,7 @@ CONTROL_SUITE_ENVS = [
     "cheetah-run",
     "ball_in_cup-catch",
     "hopper-stand",
-    "hopper-walk",
+    "hopper-hop",
     "walker-stand",
     "walker-walk",
     "walker-run",

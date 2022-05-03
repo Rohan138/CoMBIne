@@ -24,6 +24,8 @@ CONTROL_SUITE_ENVS = [
     "cartpole-swingup_sparse",
     "reacher-easy",
     "finger-spin",
+    "finger-turn_easy",
+    "finger-turn_hard",
     "cheetah-run",
     "ball_in_cup-catch",
     "hopper-stand",

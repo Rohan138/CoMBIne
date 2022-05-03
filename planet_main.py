@@ -200,6 +200,9 @@ parser.add_argument(
     "--checkpoint-experience", action="store_true", help="Checkpoint experience replay"
 )
 parser.add_argument(
+    "--metrics", type=str, default="", metavar="M", help="Load metrics checkpoint"
+)
+parser.add_argument(
     "--model", type=str, default="", metavar="M", help="Load model checkpoint"
 )
 parser.add_argument(
@@ -345,7 +348,8 @@ optimiser = optim.Adam(
     lr=0 if args.learning_rate_schedule != 0 else args.learning_rate,
     eps=args.adam_epsilon,
 )
-
+if args.metrics != "" and os.path.exists(args.metrics):
+    metrics = torch.load(args.metrics)
 if args.model != "" and os.path.exists(args.model):
     model_dicts = torch.load(args.model)
     transition_model.load_state_dict(model_dicts["transition_model"])
@@ -466,7 +470,9 @@ if args.test:
                     env.action_range[1],
                 )
                 total_reward += reward
-                if not args.symbolic_env and args.video:  # Collect real vs. predicted frames for video
+                if (
+                    not args.symbolic_env and args.video
+                ):  # Collect real vs. predicted frames for video
                     video_frames.append(
                         make_grid(
                             torch.cat(
@@ -792,7 +798,9 @@ for episode in tqdm(
                     env.action_range[1],
                 )
                 total_rewards += reward.numpy()
-                if not args.symbolic_env and args.video:  # Collect real vs. predicted frames for video
+                if (
+                    not args.symbolic_env and args.video
+                ):  # Collect real vs. predicted frames for video
                     video_frames.append(
                         make_grid(
                             torch.cat(

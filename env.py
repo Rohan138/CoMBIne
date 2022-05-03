@@ -75,13 +75,23 @@ def _images_to_observation(images, bit_depth):
 
 class ControlSuiteEnv:
     def __init__(
-        self, env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source=None, resource_files=None
+        self,
+        env,
+        symbolic,
+        seed,
+        max_episode_length,
+        action_repeat,
+        bit_depth,
+        img_source=None,
+        resource_files=None,
     ):
-        from dm_control import suite
-        from dm_control.suite.wrappers import pixels
-        import imgsource
         import glob
         import os
+
+        from dm_control import suite
+        from dm_control.suite.wrappers import pixels
+
+        import imgsource
 
         domain, task = env.split("-")
         self.symbolic = symbolic
@@ -93,10 +103,12 @@ class ControlSuiteEnv:
             self._env = pixels.Wrapper(self._env)
 
         if img_source is not None:
-            shape2d = self._env.observation_spec()['pixels'].shape[0:2]
+            shape2d = self._env.observation_spec()["pixels"].shape[0:2]
             if img_source == "color":
                 if resource_files:
-                    self._bg_source = imgsource.FixedColorSource(shape2d, resource_files)
+                    self._bg_source = imgsource.FixedColorSource(
+                        shape2d, resource_files
+                    )
                 else:
                     self._bg_source = imgsource.RandomColorSource(shape2d)
             elif img_source == "noise":
@@ -107,9 +119,13 @@ class ControlSuiteEnv:
                     resource_files
                 )
                 if img_source == "images":
-                    self._bg_source = imgsource.RandomImageSource(shape2d, files, grayscale=True, total_frames=max_episode_length)
+                    self._bg_source = imgsource.RandomImageSource(
+                        shape2d, files, grayscale=True, total_frames=max_episode_length
+                    )
                 elif img_source == "video":
-                    self._bg_source = imgsource.RandomVideoSource(shape2d, files, grayscale=True, total_frames=max_episode_length)
+                    self._bg_source = imgsource.RandomVideoSource(
+                        shape2d, files, grayscale=True, total_frames=max_episode_length
+                    )
                 else:
                     raise Exception("img_source %s not defined." % img_source)
 
@@ -140,9 +156,7 @@ class ControlSuiteEnv:
             ).unsqueeze(dim=0)
         else:
             obs = self._observe()
-            observation = _images_to_observation(
-                obs, self.bit_depth
-            )
+            observation = _images_to_observation(obs, self.bit_depth)
             return observation
 
     def step(self, action):
@@ -168,9 +182,7 @@ class ControlSuiteEnv:
             ).unsqueeze(dim=0)
         else:
             obs = self._observe()
-            observation = _images_to_observation(
-                obs, self.bit_depth
-            )
+            observation = _images_to_observation(obs, self.bit_depth)
         return observation, reward, done
 
     def render(self):
@@ -180,11 +192,13 @@ class ControlSuiteEnv:
     def close(self):
         cv2.destroyAllWindows()
         self._env.close()
-    
+
     def _observe(self):
         obs = self._env.physics.render(camera_id=0)
         if self.img_source is not None:
-            mask = np.logical_and((obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0]))  # hardcoded for dmc
+            mask = np.logical_and(
+                (obs[:, :, 2] > obs[:, :, 1]), (obs[:, :, 2] > obs[:, :, 0])
+            )  # hardcoded for dmc
             bg = self._bg_source.get_image()
             obs[mask] = bg[mask]
         return obs
@@ -289,12 +303,28 @@ class GymEnv:
         return torch.from_numpy(self._env.action_space.sample())
 
 
-def Env(env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source=None, resource_files=None):
+def Env(
+    env,
+    symbolic,
+    seed,
+    max_episode_length,
+    action_repeat,
+    bit_depth,
+    img_source=None,
+    resource_files=None,
+):
     if env in GYM_ENVS:
         return GymEnv(env, symbolic, seed, max_episode_length, action_repeat, bit_depth)
     elif env in CONTROL_SUITE_ENVS:
         return ControlSuiteEnv(
-            env, symbolic, seed, max_episode_length, action_repeat, bit_depth, img_source, resource_files
+            env,
+            symbolic,
+            seed,
+            max_episode_length,
+            action_repeat,
+            bit_depth,
+            img_source,
+            resource_files,
         )
 
 

@@ -217,6 +217,9 @@ parser.add_argument(
     "--checkpoint-experience", action="store_true", help="Checkpoint experience replay"
 )
 parser.add_argument(
+    "--metrics", type=str, default="", metavar="M", help="Load metrics checkpoint"
+)
+parser.add_argument(
     "--model", type=str, default="", metavar="M", help="Load model checkpoint"
 )
 parser.add_argument(
@@ -268,7 +271,7 @@ parser.add_argument(
     "--img-source",
     type=str,
     default=None,
-    choices=[None, 'color', 'noise', 'images', 'video'],
+    choices=[None, "color", "noise", "images", "video"],
     help="Type of dm_control background",
 )
 parser.add_argument(
@@ -399,6 +402,8 @@ optimiser = optim.Adam(
     eps=args.adam_epsilon,
 )
 
+if args.metrics != "" and os.path.exists(args.metrics):
+    metrics = torch.load(args.metrics)
 if args.model != "" and os.path.exists(args.model):
     model_dicts = torch.load(args.model)
     transition_model.load_state_dict(model_dicts["transition_model"])

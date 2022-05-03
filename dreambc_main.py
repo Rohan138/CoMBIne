@@ -231,6 +231,9 @@ parser.add_argument(
     "--checkpoint-experience", action="store_true", help="Checkpoint experience replay"
 )
 parser.add_argument(
+    "--metrics", type=str, default="", metavar="M", help="Load metrics checkpoint"
+)
+parser.add_argument(
     "--model", type=str, default="", metavar="M", help="Load model checkpoint"
 )
 parser.add_argument(
@@ -282,7 +285,7 @@ parser.add_argument(
     "--img-source",
     type=str,
     default=None,
-    choices=[None, 'color', 'noise', 'images', 'video'],
+    choices=[None, "color", "noise", "images", "video"],
     help="Type of dm_control background",
 )
 parser.add_argument(
@@ -418,6 +421,8 @@ encoder_optim = optim.Adam(
     lr=args.encoder_lr,
 )
 
+if args.metrics != "" and os.path.exists(args.metrics):
+    metrics = torch.load(args.metrics)
 if args.model != "" and os.path.exists(args.model):
     model_dicts = torch.load(args.model)
     transition_model.load_state_dict(model_dicts["transition_model"])
@@ -776,17 +781,19 @@ for episode in tqdm(
         )
         # Throw away last timestep because we don't have P(s'|s,a) for it
         diff_beliefs = F.smooth_l1_loss(perm_beliefs[:-1], beliefs[:-1])
-        diff_states = F.smooth_l1_loss(perm_posterior_states[:-1], posterior_states[:-1])
+        diff_states = F.smooth_l1_loss(
+            perm_posterior_states[:-1], posterior_states[:-1]
+        )
         z_dist = diff_beliefs + diff_states
         r_dist = F.smooth_l1_loss(perm_rewards[:-1], rewards[1:-1])
         # prior_means, prior_stddev = P(s'|s,a)
         t_dist = torch.sqrt(
             F.mse_loss(prior_means[1:].detach(), perm_prior_means[1:].detach())
             + F.mse_loss(prior_std_devs[1:].detach(), perm_prior_std_devs[1:].detach())
-            )
+        )
         bisim = r_dist + args.gamma * t_dist
         encoder_loss = F.mse_loss(z_dist, bisim)
-        
+
         # Update model parameters
         optimiser.zero_grad()
         encoder_optim.zero_grad()

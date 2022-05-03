@@ -4,8 +4,12 @@ from typing import Union
 import numpy as np
 import torch
 from torch import jit, nn
-from torch.distributions import (Independent, Normal, TanhTransform,
-                                 TransformedDistribution)
+from torch.distributions import (
+    Independent,
+    Normal,
+    TanhTransform,
+    TransformedDistribution,
+)
 from torch.nn import functional as F
 from torch.optim import Adam
 

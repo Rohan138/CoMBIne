@@ -1,5 +1,6 @@
 import argparse
 import os
+from functools import partialmethod
 from math import inf
 
 import numpy as np
@@ -13,8 +14,7 @@ from tqdm import tqdm
 
 from env import CONTROL_SUITE_ENVS, GYM_ENVS, Env, EnvBatcher
 from memory import ExperienceReplay
-from models import (Encoder, ObservationModel, RewardModel, TransitionModel,
-                    bottle)
+from models import Encoder, ObservationModel, RewardModel, TransitionModel, bottle
 from planner import MPCPlanner
 from utils import lineplot, write_video
 
@@ -179,6 +179,7 @@ parser.add_argument(
     help="Number of top candidates to fit",
 )
 parser.add_argument("--test", action="store_true", help="Test only")
+parser.add_argument("--quiet", action="store_true", help="Disable tqdm bar")
 parser.add_argument(
     "--test-interval",
     type=int,
@@ -251,6 +252,7 @@ for k, v in vars(args).items():
 
 
 # Setup
+tqdm.__init__ = partialmethod(tqdm.__init__, disable=args.quiet)
 results_dir = os.path.join("results", args.env, args.id)
 os.makedirs(results_dir, exist_ok=True)
 np.random.seed(args.seed)

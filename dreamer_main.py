@@ -197,6 +197,7 @@ parser.add_argument(
 )
 parser.add_argument("--test", action="store_true", help="Test only")
 parser.add_argument("--quiet", action="store_true", help="Disable tqdm bar")
+parser.add_argument("--verbose", action="store_true", help="print losses at each step")
 parser.add_argument(
     "--test-interval",
     type=int,
@@ -754,6 +755,14 @@ for episode in tqdm(
                 value_loss.item(),
             ]
         )
+        if args.verbose:
+            print(
+                "OL", observation_loss.item(), 
+                "RL", reward_loss.item(),
+                "KL", kl_loss.item(),
+                "PL", policy_loss.item(),
+                "VL", value_loss.item(),
+            )
 
     # Update and plot loss metrics
     losses = tuple(zip(*losses))

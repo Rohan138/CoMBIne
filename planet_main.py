@@ -669,12 +669,15 @@ for episode in tqdm(
         optimiser.step()
         # Store (0) observation loss (1) reward loss (2) KL loss
         losses.append([observation_loss.item(), reward_loss.item(), kl_loss.item()])
-        if args.verbose:
-            print(
-                "OL", observation_loss.item(), 
-                "RL", reward_loss.item(),
-                "KL", kl_loss.item(),
-            )
+    if args.verbose:
+        print(
+            "OL",
+            np.mean(losses[0]),
+            "RL",
+            np.mean(losses[1]),
+            "KL",
+            np.mean(losses[2]),
+        )
 
     # Update and plot loss metrics
     losses = tuple(zip(*losses))

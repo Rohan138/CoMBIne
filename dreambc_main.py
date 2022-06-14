@@ -792,15 +792,21 @@ for episode in tqdm(
                 encoder_loss.item(),
             ]
         )
-        if args.verbose:
-            print(
-                "OL", observation_loss.item(), 
-                "RL", reward_loss.item(),
-                "KL", kl_loss.item(),
-                "EL", encoder_loss.item(),
-                "PL", policy_loss.item(),
-                "VL", value_loss.item(),
-            )
+    if args.verbose:
+        print(
+            "OL",
+            np.mean(losses[0]),
+            "RL",
+            np.mean(losses[1]),
+            "KL",
+            np.mean(losses[2]),
+            "PL",
+            np.mean(losses[3]),
+            "VL",
+            np.mean(losses[4]),
+            "EL",
+            np.mean(losses[5]),
+        )
 
     # Update and plot loss metrics
     losses = tuple(zip(*losses))

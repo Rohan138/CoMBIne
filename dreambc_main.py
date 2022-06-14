@@ -168,13 +168,6 @@ parser.add_argument(
     help="Learning rate for value",
 )
 parser.add_argument(
-    "--encoder-lr",
-    type=float,
-    default=1e-5,
-    metavar="eα",
-    help="Learning rate for DBC encoder",
-)
-parser.add_argument(
     "--gamma",
     type=float,
     default=0.99,
@@ -417,10 +410,6 @@ optimiser = optim.Adam(
     param_list,
     lr=0 if args.learning_rate_schedule != 0 else args.learning_rate,
     eps=args.adam_epsilon,
-)
-encoder_optim = optim.Adam(
-    encoder.parameters(),
-    lr=args.encoder_lr,
 )
 
 if args.metrics != "" and os.path.exists(args.metrics):
@@ -781,12 +770,10 @@ for episode in tqdm(
 
         # Update model parameters
         optimiser.zero_grad()
-        encoder_optim.zero_grad()
         total_loss = observation_loss + reward_loss + kl_loss
         total_loss += args.bisim_coef * encoder_loss
         total_loss.backward()
         nn.utils.clip_grad_norm_(param_list, args.grad_clip_norm, norm_type=2)
-        encoder_optim.step()
         optimiser.step()
         beliefs = torch.cat([init_belief.unsqueeze(dim=0), beliefs.detach()], dim=0)
         posterior_states = torch.cat(

@@ -753,6 +753,8 @@ for episode in tqdm(
             "train_rewards",
             results_dir,
         )
+        if args.verbose:
+            print("Train reward", np.mean(total_reward))
 
     # Test model
     if episode % args.test_interval == 0:
@@ -834,6 +836,8 @@ for episode in tqdm(
         # Update and plot reward metrics (and write video if applicable) and save metrics
         metrics["test_episodes"].append(episode)
         metrics["test_rewards"].append(total_rewards.tolist())
+        if args.verbose:
+            print("Test reward", np.mean(total_rewards.tolist()))
         lineplot(
             metrics["test_episodes"],
             metrics["test_rewards"],

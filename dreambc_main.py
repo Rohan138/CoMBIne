@@ -419,7 +419,7 @@ optimiser = optim.Adam(
     eps=args.adam_epsilon,
 )
 encoder_optim = optim.Adam(
-    list(encoder.parameters()) + list(transition_model.parameters()),
+    encoder.parameters(),
     lr=args.encoder_lr,
 )
 
@@ -753,7 +753,7 @@ for episode in tqdm(
                     group["lr"] + args.learning_rate / args.learning_rate_schedule,
                     args.learning_rate,
                 )
-        # Add DBC loss; note that gradients accumulate
+        # Add DBC loss; note that gradients accumulate for the encoder
         # Note that we throw away the first observation in each chunk
         # Need to be careful about 0-indexing vs 1-indexing for CxBx_ tensors
         perm_idx = torch.randperm(observations[1:].shape[0]) + 1
@@ -761,34 +761,17 @@ for episode in tqdm(
         perm_rewards = rewards[perm_idx].detach()
         perm_actions = actions[perm_idx - 1].detach()
         perm_nonterminals = nonterminals[perm_idx - 1].detach()
-
-        perm_init_belief, perm_init_state = torch.zeros(
-            args.batch_size, args.belief_size, device=args.device
-        ), torch.zeros(args.batch_size, args.state_size, device=args.device)
-        # Update belief/state using posterior from previous belief/state, previous action and current observation (over entire sequence at once)
-        (
-            perm_beliefs,
-            _,
-            perm_prior_means,
-            perm_prior_std_devs,
-            perm_posterior_states,
-            _,
-            _,
-        ) = transition_model(
-            perm_init_state,
-            perm_actions,
-            perm_init_belief,
-            bottle(encoder, (perm_observations,)),
-            perm_nonterminals,
-        )
+        perm_prior_means = prior_means[perm_idx - 1].detach()
+        perm_prior_std_devs = prior_std_devs[perm_idx - 1].detach()
+        perm_posterior_states = posterior_states[perm_idx - 1].detach()
         # Throw away last timestep because we don't have P(s'|s,a) for it
-        diff_beliefs = F.smooth_l1_loss(perm_beliefs[:-1], beliefs[:-1])
-        diff_states = F.smooth_l1_loss(
-            perm_posterior_states[:-1], posterior_states[:-1]
-        )
-        z_dist = diff_beliefs + diff_states
+        z_dist = F.smooth_l1_loss(perm_posterior_states[:-1], posterior_states[:-1])
         r_dist = F.smooth_l1_loss(perm_rewards[:-1], rewards[1:-1])
-        # prior_means, prior_stddev = P(s'|s,a)
+        # prior_means, prior_stddev = P(s'|s,a); multiple by 1 - done i.e. nonterminal
+        prior_means = prior_means * nonterminals[:-1]
+        prior_std_devs = prior_std_devs * nonterminals[:-1]
+        perm_prior_means = perm_prior_means * perm_nonterminals
+        perm_prior_std_devs = perm_prior_std_devs * perm_nonterminals
         t_dist = torch.sqrt(
             F.mse_loss(prior_means[1:].detach(), perm_prior_means[1:].detach())
             + F.mse_loss(prior_std_devs[1:].detach(), perm_prior_std_devs[1:].detach())

@@ -198,7 +198,7 @@ parser.add_argument(
 parser.add_argument(
     "--bisim-coef",
     type=float,
-    default=0.5,
+    default=0.1,
     metavar="bc",
     help="Bisimulation coefficient for DBC encoder",
 )
